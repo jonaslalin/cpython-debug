@@ -1,16 +1,13 @@
-ARG DOCKER_REGISTRY=docker.io
-ARG UBUNTU_IMAGE_NAME=library/ubuntu
-ARG UBUNTU_IMAGE_TAG=jammy-20240627.1
+ARG UBUNTU_IMAGE=docker.io/library/ubuntu:jammy-20240627.1
 
-ARG CURL_HTTPS_PROXY
 ARG CPYTHON_VERSION=3.8.19
 ARG GDB_VERSION=15.1
 
-################################################################################
+###############################################################################
+#                          debs-for-ca-certificates                           #
+###############################################################################
 
-FROM $DOCKER_REGISTRY/$UBUNTU_IMAGE_NAME:$UBUNTU_IMAGE_TAG AS ca-certificates-debs
-
-WORKDIR /var/cache/apt/archives/
+FROM $UBUNTU_IMAGE AS debs-for-ca-certificates
 
 RUN --mount=type=bind,target=/etc/apt/sources.list,source=sources.list \
     --mount=type=bind,target=/etc/ssl/certs/ca-certificates.crt,source=ca-certificates.crt \
@@ -20,18 +17,22 @@ RUN --mount=type=bind,target=/etc/apt/sources.list,source=sources.list \
         openssl \
     && rm -rf /var/lib/apt/lists/*
 
-################################################################################
+###############################################################################
+#                               ca-certificates                               #
+###############################################################################
 
-FROM $DOCKER_REGISTRY/$UBUNTU_IMAGE_NAME:$UBUNTU_IMAGE_TAG AS ca-certificates
+FROM $UBUNTU_IMAGE AS ca-certificates
 
-RUN --mount=type=bind,target=/var/cache/apt/archives/,source=/var/cache/apt/archives/,from=ca-certificates-debs \
+RUN --mount=type=bind,target=/var/cache/apt/archives/,source=/var/cache/apt/archives/,from=debs-for-ca-certificates \
     find /var/cache/apt/archives/ \
         -name "ca-certificates*.deb" \
         -o \
         -name "openssl*.deb" \
     | DEBIAN_FRONTEND=noninteractive xargs dpkg -i
 
-################################################################################
+###############################################################################
+#                               build-essential                               #
+###############################################################################
 
 FROM ca-certificates AS build-essential
 
@@ -42,17 +43,17 @@ RUN --mount=type=bind,target=/etc/apt/sources.list,source=sources.list \
         build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-################################################################################
+###############################################################################
+#                                   cpython                                   #
+###############################################################################
 
 FROM build-essential AS cpython
 
-ARG CURL_HTTPS_PROXY
 ARG CPYTHON_VERSION
-
-WORKDIR /root/
 
 RUN --mount=type=bind,target=/etc/apt/sources.list,source=sources.list \
     --mount=type=bind,target=/etc/ssl/certs/ca-certificates.crt,source=ca-certificates.crt \
+    --mount=type=secret,id=curl_https_proxy,required=true \
     apt-get update && \
     apt-get install -y \
         curl \
@@ -69,47 +70,43 @@ RUN --mount=type=bind,target=/etc/apt/sources.list,source=sources.list \
         lzma-dev \
         uuid-dev \
         zlib1g-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN  --mount=type=bind,target=/etc/ssl/certs/ca-certificates.crt,source=ca-certificates.crt \
-    curl -LO ${CURL_HTTPS_PROXY:+-x $CURL_HTTPS_PROXY} \
-        https://github.com/python/cpython/archive/refs/tags/v$CPYTHON_VERSION.zip && \
+    && rm -rf /var/lib/apt/lists/* && \
+    cd /tmp/ && \
+    HTTPS_PROXY=$(cat /run/secrets/curl_https_proxy) \
+    curl -LO https://github.com/python/cpython/archive/refs/tags/v$CPYTHON_VERSION.zip && \
     unzip v$CPYTHON_VERSION.zip && \
-    rm v$CPYTHON_VERSION.zip
-
-WORKDIR /root/cpython-$CPYTHON_VERSION/
-
-RUN ./configure --with-pydebug && \
+    rm v$CPYTHON_VERSION.zip && \
+    cd cpython-$CPYTHON_VERSION/ && \
+    ./configure --with-pydebug && \
     make -s -j $(nproc) && \
-    make install
+    make install && \
+    cd .. && \
+    rm -rf cpython-$CPYTHON_VERSION/
 
-################################################################################
+###############################################################################
+#                              cpython-with-gdb                               #
+###############################################################################
 
 FROM cpython AS cpython-with-gdb
 
-ARG CURL_HTTPS_PROXY
 ARG GDB_VERSION
-
-WORKDIR /root/
 
 RUN --mount=type=bind,target=/etc/apt/sources.list,source=sources.list \
     --mount=type=bind,target=/etc/ssl/certs/ca-certificates.crt,source=ca-certificates.crt \
+    --mount=type=secret,id=curl_https_proxy,required=true \
     apt-get update && \
     apt-get install -y \
         libgmp-dev \
         libmpfr-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN  --mount=type=bind,target=/etc/ssl/certs/ca-certificates.crt,source=ca-certificates.crt \
-    curl -LO ${CURL_HTTPS_PROXY:+-x $CURL_HTTPS_PROXY} \
-        https://sourceware.org/pub/gdb/releases/gdb-$GDB_VERSION.tar.gz && \
+    && rm -rf /var/lib/apt/lists/* && \
+    cd /tmp/ && \
+    HTTPS_PROXY=$(cat /run/secrets/curl_https_proxy) \
+    curl -LO https://sourceware.org/pub/gdb/releases/gdb-$GDB_VERSION.tar.gz && \
     tar xvzf gdb-$GDB_VERSION.tar.gz && \
-    rm gdb-$GDB_VERSION.tar.gz
-
-WORKDIR /root/gdb-$GDB_VERSION/
-
-RUN ./configure --with-python=python3 && \
-    make -j $(nproc) && \
-    make install
-
-WORKDIR /root/
+    rm gdb-$GDB_VERSION.tar.gz && \
+    cd gdb-$GDB_VERSION/ && \
+    ./configure --with-python=python3 && \
+    make -s -j $(nproc) && \
+    make install && \
+    cd .. && \
+    rm -rf gdb-$GDB_VERSION/
