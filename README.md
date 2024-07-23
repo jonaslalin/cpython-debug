@@ -12,6 +12,8 @@ cp templates/* .
 . utils.sh
 ```
 
+then
+
 ```sh
 pull_ubuntu_image
 ```
