@@ -9,8 +9,8 @@ ARG GDB_VERSION=15.1
 
 FROM $UBUNTU_IMAGE AS debs-for-ca-certificates
 
-RUN --mount=type=bind,target=/etc/apt/sources.list,source=sources.list \
-    --mount=type=bind,target=/etc/ssl/certs/ca-certificates.crt,source=ca-certificates.crt \
+RUN --mount=type=secret,id=apt_sources,target=/etc/apt/sources.list,required=true,mode=0444 \
+    --mount=type=secret,id=ca_certificates,target=/etc/ssl/certs/ca-certificates.crt,required=true,mode=0444 \
     apt-get update && \
     apt-get install -d \
         ca-certificates \
@@ -36,8 +36,8 @@ RUN --mount=type=bind,target=/var/cache/apt/archives/,source=/var/cache/apt/arch
 
 FROM ca-certificates AS build-essential
 
-RUN --mount=type=bind,target=/etc/apt/sources.list,source=sources.list \
-    --mount=type=bind,target=/etc/ssl/certs/ca-certificates.crt,source=ca-certificates.crt \
+RUN --mount=type=secret,id=apt_sources,target=/etc/apt/sources.list,required=true,mode=0444 \
+    --mount=type=secret,id=ca_certificates,target=/etc/ssl/certs/ca-certificates.crt,required=true,mode=0444 \
     apt-get update && \
     apt-get install -y \
         build-essential \
@@ -51,9 +51,9 @@ FROM build-essential AS cpython
 
 ARG CPYTHON_VERSION
 
-RUN --mount=type=bind,target=/etc/apt/sources.list,source=sources.list \
-    --mount=type=bind,target=/etc/ssl/certs/ca-certificates.crt,source=ca-certificates.crt \
-    --mount=type=secret,id=curl_https_proxy,required=true \
+RUN --mount=type=secret,id=apt_sources,target=/etc/apt/sources.list,required=true,mode=0444 \
+    --mount=type=secret,id=ca_certificates,target=/etc/ssl/certs/ca-certificates.crt,required=true,mode=0444 \
+    --mount=type=secret,id=curl_https_proxy,required=true,mode=0444 \
     apt-get update && \
     apt-get install -y \
         curl \
@@ -91,9 +91,9 @@ FROM cpython AS cpython-with-gdb
 
 ARG GDB_VERSION
 
-RUN --mount=type=bind,target=/etc/apt/sources.list,source=sources.list \
-    --mount=type=bind,target=/etc/ssl/certs/ca-certificates.crt,source=ca-certificates.crt \
-    --mount=type=secret,id=curl_https_proxy,required=true \
+RUN --mount=type=secret,id=apt_sources,target=/etc/apt/sources.list,required=true,mode=0444 \
+    --mount=type=secret,id=ca_certificates,target=/etc/ssl/certs/ca-certificates.crt,required=true,mode=0444 \
+    --mount=type=secret,id=curl_https_proxy,required=true,mode=0444 \
     apt-get update && \
     apt-get install -y \
         libgmp-dev \
