@@ -9,7 +9,7 @@ cp templates/* .
 ## 2.
 
 ```sh
-. utils.sh
+. ./utils.sh
 ```
 
 then
