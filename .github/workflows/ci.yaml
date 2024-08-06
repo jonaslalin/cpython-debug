@@ -52,11 +52,11 @@ jobs:
           - CURL_HTTPS_PROXY: ""
         with:
           context: .
-          secret-files:
-            - apt_sources=templates/sources.list
-            - ca_certificates=templates/ca-certificates.crt
-          secret-envs:
-            - curl_https_proxy=CURL_HTTPS_PROXY
+          secret-files: |
+            apt_sources=templates/sources.list
+            ca_certificates=templates/ca-certificates.crt
+          secret-envs: |
+            curl_https_proxy=CURL_HTTPS_PROXY
           platforms: ${{ env.PLATFORMS }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
