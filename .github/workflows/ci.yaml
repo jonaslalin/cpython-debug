@@ -49,7 +49,7 @@ jobs:
         name: Build and push
         uses: docker/build-push-action@v6
         env:
-          - CURL_HTTPS_PROXY: ""
+          CURL_HTTPS_PROXY: ""
         with:
           context: .
           secret-files: |
