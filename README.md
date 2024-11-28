@@ -1,4 +1,4 @@
-# cpython-debugging
+# cpython-debug
 
 ## 1.
 
@@ -36,7 +36,7 @@ podman build \
     --secret=id=ca_certificates,src=ca-certificates.crt \
     --secret=id=curl_https_proxy,env=CURL_HTTPS_PROXY \
     --security-opt=label=disable \
-    --tag=cpython-debugging:latest \
+    --tag=cpython-debug:latest \
     .
 ```
 
@@ -52,12 +52,12 @@ podman build \
     --secret=id=ca_certificates,src=ca-certificates.crt \
     --secret=id=curl_https_proxy,env=CURL_HTTPS_PROXY \
     --security-opt=label=disable \
-    --tag=cpython-debugging:latest \
+    --tag=cpython-debug:latest \
     .
 ```
 
 ## 4.
 
 ```sh
-podman run --interactive --rm --tty cpython-debugging:latest
+podman run --interactive --rm --tty cpython-debug:latest
 ```
